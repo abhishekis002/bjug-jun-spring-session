@@ -15,6 +15,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import tenx.store.OrderService;
+import tenx.store.infra.DataSourceUtils;
+import tenx.store.infra.TransactionalWrapper;
 import tenx.store.model.LineItem;
 import tenx.store.model.Order;
 import tenx.store.model.Product;
@@ -35,6 +37,9 @@ public class SimpleOrderServiceIntegrationTest {
 	
 	@Test
 	public void testCreateOrder() throws SQLException {
+		
+		orderService = TransactionalWrapper.wrap(orderService, dataSource);
+		
 		Order o = new Order();
 		
 		LineItem item = new LineItem();
@@ -51,12 +56,12 @@ public class SimpleOrderServiceIntegrationTest {
 			orderService.processOrder(o);
 			fail("should result in exception");
 		} catch(RuntimeException e) {
-			// ingore
+			// ignore
 		}
 		
-		Connection connection = dataSource.getConnection();		
-		Product p = productDao.findById(connection, 1l);
-		connection.close();
+		DataSourceUtils.open(dataSource);	
+		Product p = productDao.findById(1l);
+		DataSourceUtils.close();
 		
 		assertEquals(10, p.getAvailableQuantity());
 	}

@@ -8,14 +8,16 @@ import java.sql.SQLException;
 
 import org.springframework.stereotype.Repository;
 
+import tenx.store.infra.DataSourceUtils;
 import tenx.store.model.Order;
 
 @Repository
 public class JDBCOrderDao implements OrderDao {
 
 	@Override
-	public Long createOrder(Connection connection, Order order) {
+	public Long createOrder(Order order) {
 		try {
+			Connection connection = DataSourceUtils.get();
 			PreparedStatement ps = connection
 					.prepareStatement("insert into orders (id, cost) values(null, ?)");
 

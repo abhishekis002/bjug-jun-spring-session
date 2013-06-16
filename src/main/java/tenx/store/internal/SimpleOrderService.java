@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import tenx.store.OrderService;
+import tenx.store.infra.DataSourceUtils;
 import tenx.store.model.LineItem;
 import tenx.store.model.Order;
 import tenx.store.model.Product;
@@ -36,8 +37,7 @@ public class SimpleOrderService implements OrderService {
 		try {
 			BigDecimal cost = new BigDecimal("0");
 			for (LineItem lineItem : order.getItems()) {
-				Product p = productDao.findById(connection,
-						lineItem.getProductId());
+				Product p = productDao.findById(lineItem.getProductId());
 				cost = cost.add(p.getPrice().multiply(
 						new BigDecimal(lineItem.getQuantity())));
 			}
@@ -52,44 +52,19 @@ public class SimpleOrderService implements OrderService {
 		}
 	}
 
-
 	public Long processOrder(Order order) {
-		Connection connection = null;
-		try {
-			connection = dataSource.getConnection();
-			connection.setAutoCommit(false);
+		for (LineItem lineItem : order.getItems()) {
+			Product p = productDao.findById(lineItem.getProductId());
 
-			for (LineItem lineItem : order.getItems()) {
-				Product p = productDao.findById(connection,
-						lineItem.getProductId());
-				
-				if (p.getAvailableQuantity() < lineItem.getQuantity()) {
-					throw new RuntimeException("Insufficient quantity");
-				}
-				
-				p.setAvailableQuantity(p.getAvailableQuantity()
-						- lineItem.getQuantity());
-				productDao.update(connection, p);
+			if (p.getAvailableQuantity() < lineItem.getQuantity()) {
+				throw new RuntimeException("Insufficient quantity");
 			}
-			Long orderId = orderDao.createOrder(connection, order);
 
-			connection.commit();
-
-			return orderId;
-		} catch (Throwable t) {
-			try {
-				connection.rollback();
-			} catch (Exception e) {
-			}
-			throw new RuntimeException("Error creating order", t);
-		} finally {
-			if (connection != null) {
-				try {
-					connection.close();
-				} catch (Exception e) {
-				}
-			}
+			p.setAvailableQuantity(p.getAvailableQuantity()
+					- lineItem.getQuantity());
+			productDao.update(p);
 		}
+		return orderDao.createOrder(order);
 	}
 
 	public List<Long> bulkOrder(List<Order> orders) {
